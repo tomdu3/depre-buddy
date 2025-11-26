@@ -2,16 +2,17 @@
 
 ## **Project Overview**
 
-**Goal:** To build a robust, multi-agent system that provides structured, empathetic mental health triage (based on the PHQ-9 framework) and delivers grounded, real-time resources.  
+**Goal:** To build a robust, multi-agent system that provides structured, empathetic mental health triage (based on the PHQ-9 framework) and delivers grounded, real-time resources. The entire workflow simulates the **Sequential Agent** pattern and **Agent-to-Agent (A2A)** communication.  
+**Constraint:** The entire system must be developed and run locally, avoiding all cloud deployment services (e.g., Cloud Run, Vertex AI) and relying only on standard Python libraries (FastAPI, Requests) and the public Gemini API endpoint.  
 **Technology Stack:**
 
-* **Backend:** Python, FastAPI, Gemini API (for LLM and Tools), In-Memory State Management.  
-* **Frontend:** HTML, JavaScript (Vanilla JS), Tailwind CSS.  
-* **Agent Concepts:** Sequential Agents, A2A Protocol, Built-in Tools (Google Search), Sessions & Memory.
+* **Backend:** Python, FastAPI, Gemini API (for LLM and Tools), In-Memory State Management (session\_store).  
+* **Frontend:** HTML, JavaScript (Vanilla JS), Tailwind CSS (for aesthetics and mobile-first design).  
+* **Agent Concepts:** Sequential Agents (Day 1b), A2A Protocol (Day 5a), Built-in Tools (Google Search Grounding, Day 2a/2b), Sessions & Memory (Day 3a).
 
 ## **High-Level Architecture**
 
-The application follows a standard client-server model, with the core logic residing in the FastAPI backend, structured as a sequential multi-agent pipeline. The key components are the client, the API gateway, and the three specialized agent handlers that communicate sequentially.
+The application uses a sequential, pipeline-style flow, where the current state\["step"\] determines which specialized agent handler is active. Control is explicitly passed via function calls, simulating the A2A handoff.
 
 ## **Stage 1: Foundation & Backend Setup (FastAPI Core)**
 
@@ -19,35 +20,35 @@ The application follows a standard client-server model, with the core logic resi
 
 | Task | Description | Implementation Details | Deliverable |
 | :---- | :---- | :---- | :---- |
-| **1.1 Project Setup** | Initialize FastAPI and define basic dependencies. | Create main.py with FastAPI app initialization and necessary imports (e.g., requests, json, LLM helpers). | main.py with basic structure. |
-| **1.2 LLM Helper Function** | Create a reusable function to call the Gemini API for standard text generation. | Implement gemini\_llm\_response(prompt, system\_instruction) using gemini-2.5-flash-preview-09-2025. | Function for text generation. |
-| **1.3 Search Tool Function** | Create a reusable function to call the Gemini API with Google Search grounding enabled. | Implement gemini\_search\_tool(query) to enable the tools: \[{ "google\_search": {} }\] property. | Function for grounded search. |
-| **1.4 Session Manager** | Define the global session store and state structure. | Use a dictionary (session\_store \= {}) to hold session data. Each session must include: history, step, phq9\_score, phq9\_data. | Global session\_store definition. |
-| **1.5 Core API Endpoint** | Create the main /chat endpoint to handle all user-agent interactions. | Define the POST /chat endpoint that accepts session\_id and user\_message. This endpoint will use state\["step"\] to call the correct agent handler. | Functional /chat endpoint skeleton. |
+| **1.1 Project Setup** | Initialize FastAPI and define basic dependencies. | Create main.py with FastAPI app initialization. Include call\_api\_with\_backoff utility to handle transient API errors, as practiced in the course. | main.py with basic structure and error utility. |
+| **1.2 LLM Helper Function** | Create a reusable function to call the Gemini API for standard text generation. | Implement agent\_llm\_text\_generation(prompt, system\_instruction) using gemini-2.5-flash-preview-09-2025 with **no tools** enabled. Used primarily by the Triage Agent. | Function for text generation. |
+| **1.3 Search Tool Function** | Create a reusable function to call the Gemini API with Google Search grounding enabled. | Implement gemini\_search\_tool(query, system\_instruction) which sets the tools: \[{ "google\_search": {} }\] property. **This simulates an external tool.** Used by the Resource Agent. | Function for grounded search. |
+| **1.4 Session Manager** | Define the global session store and state structure. | Use a global Python dictionary (session\_store) for in-memory session state (Day 3a). Initial state must include: history, step (starts at TriageAgent\_Init), phq9\_score, phq9\_data. | Global session\_store definition. |
+| **1.5 Core API Endpoint** | Create the main /chat endpoint to handle all user-agent interactions. | Define the POST /chat endpoint. It retrieves the current state and routes the request by calling the function mapped to state\["step"\] in the AGENT\_HANDLERS dictionary. | Functional /chat endpoint skeleton with dynamic routing. |
 
 ## **Stage 2: Core Agent Logic & State Management**
 
-**Objective:** Implement the three sequential agent handlers and the logic to manage control flow using the A2A protocol pattern.
+**Objective:** Implement the three sequential agent handlers and the logic to manage control flow using the A2A protocol pattern (Day 5a).
 
 | Task | Description | Implementation Details | Deliverable |
 | :---- | :---- | :---- | :---- |
-| **2.1 PHQ-9 Definition** | Define the content and structure of the PHQ-9 questions. | Store the 8 core questions and the severity rating scale (0-3) in a Python array/dictionary. | PHQ\_9\_QUESTIONS data structure. |
-| **2.2 Triage Agent Handler** | Implement the first agent responsible for safety check and data collection. | TriageAgent\_handler: Handles the immediate crisis check (PHQ-9 Item 9\) and prompts the user through the 8 questions, saving responses to session\_store. | Functional TriageAgent\_handler. |
-| **2.3 Assessment Agent Handler** | Implement the second agent responsible for calculating the PHQ-9 score and category. | AssessmentAgent\_handler: Calculates the total score and assigns the risk level (CRISIS, PROFESSIONAL, MONITORING, MINIMAL). **This handler uses the A2A pattern to switch control** by setting state\["step"\] \= "ResourceAgent\_Final". | Functional AssessmentAgent\_handler. |
-| **2.4 Resource Agent Handler** | Implement the final agent responsible for empathetic response and resource lookup. | ResourceAgent\_handler: Uses the calculated risk level to define a system prompt (Context Engineering) and a search query. Calls gemini\_llm\_response and gemini\_search\_tool. | Functional ResourceAgent\_handler. |
-| **2.5 A2A Control Logic** | Integrate the agent handlers within the /chat endpoint for sequential execution. | The /chat endpoint must dynamically call the function determined by session\_store\[session\_id\]\["step"\]. | Fully functional sequential agent pipeline. |
+| **2.1 PHQ-9 Definition & Tool** | Define the PHQ-9 content and implement the deterministic scoring tool. | Store the 8 core questions in a Python list (PHQ\_9\_QUESTIONS). Implement the **Function Tool** simulation: classify\_phq9\_score(score: int) which returns the severity string. | PHQ\_9\_QUESTIONS and classify\_phq9\_score function. |
+| **2.2 Triage Agent Handler** | Implement the first agent responsible for safety check and data collection. | TriageAgent\_handler: Handles the initial crisis check (safety) and prompts the 8 questions sequentially. Upon completion of duration collection, it **performs A2A handoff** via return await AssessmentAgent\_handler(...). | Functional TriageAgent\_handler with sequential state updates and crisis override logic. |
+| **2.3 Assessment Agent Handler** | Implement the second agent responsible for calculating the PHQ-9 score and category. | AssessmentAgent\_handler: Retrieves phq9\_score from state, calls the **Function Tool** (classify\_phq9\_score), and uses the **A2A pattern** to immediately call and switch control to the Resource Agent: return await ResourceAgent\_handler(...). | Functional AssessmentAgent\_handler using the deterministic tool and A2A handoff. |
+| **2.4 Resource Agent Handler** | Implement the final agent responsible for empathetic response and resource lookup. | ResourceAgent\_handler: Uses the severity category to set the appropriate System Prompt (**Context Engineering**) and calls the **External Tool Simulation** (gemini\_search\_tool) to get grounded advice. | Functional ResourceAgent\_handler providing final grounded response and source citations. |
+| **2.5 Observability Simulation** | Integrate simulated logging for tracing the sequential flow. | Add print() statements tagged with \[ADK Agent Handoff Log\] at the beginning and end of each agent handler to trace the execution path (Day 4a concept). | Logs confirming successful A2A transitions in the console. |
 
 ## **Stage 3: Frontend Development & Integration**
 
-**Objective:** Create a responsive, intuitive chat interface and integrate it with the FastAPI backend.
+**Objective:** Create a responsive, intuitive chat interface and integrate it with the FastAPI backend using standard web technologies.
 
 | Task | Description | Implementation Details | Deliverable |
 | :---- | :---- | :---- | :---- |
-| **3.1 HTML/Tailwind Structure** | Define the layout for the single-page application. | Create index.html with a centered chat container, input field, and a message display area. Use Tailwind for mobile-first responsiveness and the "Calm Reliability" palette. | index.html structure and styling. |
-| **3.2 Initial JS Setup** | Implement core frontend logic for session management. | Implement generateSessionId() function (using crypto.randomUUID()) and getOrCreateSession(). | JS functions for session handling. |
-| **3.3 UI Rendering Logic** | Implement functions to dynamically display messages. | Implement renderMessage(sender, text) to display messages in the chat history. Handle markdown rendering for LLM responses. | UI rendering functions. |
-| **3.4 API Communication** | Create the core frontend function to talk to the backend. | Implement sendMessage() to asynchronously fetch the FastAPI /chat endpoint, passing the session\_id and user\_message. Include a loading spinner. | sendMessage function integrated. |
-| **3.5 First Interaction Test** | Verify end-to-end communication and state preservation. | Test the initial greeting and the first few Triage Agent prompts. | Functional Chat UI interacting with the Triage Agent. |
+| **3.1 HTML/Tailwind Structure** | Define the layout for the single-page application. | Create index.html with Tailwind CSS integration (using the CDN). The layout must be a clean, mobile-responsive chat box with rounded corners and clear contrast (**Aesthetics is crucial**). | index.html structure and styling. |
+| **3.2 Initial JS Setup** | Implement core frontend logic for session management. | Implement generateSessionId() (using crypto.randomUUID()) and ensure the session ID is persisted in localStorage for the browser session. | JS functions for session handling. |
+| **3.3 UI Rendering Logic** | Implement functions to dynamically display messages. | Implement renderMessage(sender, text) that handles dynamic HTML insertion. Use a library or custom logic to render simple Markdown (e.g., \*\*bold\*\*, \*italics\*) from the LLM responses. | UI rendering functions in Vanilla JS. |
+| **3.4 API Communication** | Create the core frontend function to talk to the backend. | Implement sendMessage() to asynchronously fetch the /chat endpoint. Include client-side validation and a simple loading spinner/indicator to handle the latency of the LLM calls. | sendMessage function integrated with loading state. |
+| **3.5 First Interaction Test** | Verify end-to-end communication and state preservation. | Test the initial greeting, the crisis check, and the first PHQ-9 question to ensure the session\_id is correctly maintained across requests. | Functional Chat UI interacting with the Triage Agent. |
 
 ## **Stage 4: Testing, Refinement & Submission Prep**
 
@@ -55,8 +56,7 @@ The application follows a standard client-server model, with the core logic resi
 
 | Task | Description | Implementation Details | Deliverable |
 | :---- | :---- | :---- | :---- |
-| **4.1 Scenario Testing** | Test all four possible final recommendation paths. | Test cases for: CRISIS (immediate risk), PROFESSIONAL (high score), MONITORING (low score, short duration), MINIMAL (very low score). | Verified functional agent pipeline. |
-| **4.2 Error Handling** | Implement robust error handling in both backend and frontend. | Backend: Add try/except blocks to handle API failures. Frontend: Display user-friendly error messages if the API call fails. | Enhanced error resilience. |
-| **4.3 Final Documentation** | Review and complete the Capstone writeup. | Ensure the provided depre\_buddy\_writeup.md is updated with specific A2A and implementation details, and that the architecture description is clear. | Finalized depre\_buddy\_writeup.md. |
-| **4.4 Code Clean-up** | Add detailed comments and ensure no API keys are present in the code. | Review all functions for clarity and remove any hardcoded secrets. | Production-ready code (without secrets). |
-
+| **4.1 Scenario Testing** | Test all four possible final recommendation paths. | Test cases for: CRISIS (triggering score 99), SEVERE (score $\\ge 20$), MODERATE (score $10-14$), MINIMAL (score $\\le 4$). Verify tool usage in the logs. | Verified functional agent pipeline. |
+| **4.2 Error Handling** | Implement robust error handling in both backend and frontend. | Backend: Ensure the call\_api\_with\_backoff handles Gemini API failures gracefully. Frontend: Display a non-disruptive error message if the /chat endpoint fails. | Enhanced error resilience. |
+| **4.3 Final Documentation** | Review and complete the Capstone writeup. | Ensure the provided depre\_buddy\_writeup.md is updated with specific references to the ADK course concepts used (e.g., "The direct function call from AssessmentAgent\_handler to ResourceAgent\_handler simulates the **A2A Protocol**"). | Finalized depre\_buddy\_writeup.md. |
+| **4.4 Code Clean-up** | Add detailed comments and ensure no API keys are present in the code. | Review all functions for clarity and ensure API\_KEY \= "" is used. | Production-ready code (without secrets). |
