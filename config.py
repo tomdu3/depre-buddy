@@ -6,7 +6,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
-    MODEL_NAME: str = os.getenv("MODEL_NAME") or "gemini-2.5-flash-preview-09-2025"
+    MODEL_NAME: str = os.getenv("MODEL_NAME") or "gemini-2.5-flash-lite"  # Fast, cost-effective Gemini model
     SECRET_KEY: str = os.getenv("SECRET_KEY") or "your-secret-key"
 
     if not GOOGLE_API_KEY:
