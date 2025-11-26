@@ -1,7 +1,7 @@
 [project]
 name = "depre-buddy"
 version = "0.1.0"
-description = "Add your description here"
+description = "Depre Buddy Sequential Triage Agent"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
