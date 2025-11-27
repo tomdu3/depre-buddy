@@ -117,3 +117,8 @@ RESOURCE GUIDELINES:
 - Emphasize that professional help is available and effective""",
     tools=[google_search, crisis_tool.detect_crisis],
 )
+
+# --- Agent Runners ---
+triage_runner = InMemoryRunner(agent=triage_agent)
+assessment_runner = InMemoryRunner(agent=assessment_agent)
+resource_runner = InMemoryRunner(agent=resource_agent)
