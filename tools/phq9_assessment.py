@@ -1,4 +1,4 @@
-from google.adk.tools import tool
+from google.adk.tools.function_tool import FunctionTool
 from typing import Dict, Any
 
 class PHQ9AssessmentTool:
@@ -25,8 +25,10 @@ class PHQ9AssessmentTool:
         9: "Thoughts that you would be better off dead or of hurting yourself in some way?",
     }
     
-    @tool
-    async def administer_question(self, question_number: int, user_response: str) -> Dict[str, Any]:
+    def __init__(self):
+        self.administer_question = FunctionTool(self._administer_question)
+    
+    async def _administer_question(self, question_number: int, user_response: str) -> Dict[str, Any]:
         """
         Process PHQ-9 question responses and return next steps.
         """

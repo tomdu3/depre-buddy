@@ -1,10 +1,12 @@
-from google.adk.tools import tool
+from google.adk.tools.function_tool import FunctionTool
 from typing import Dict, Any
 
 class CrisisDetectionTool:
     
-    @tool
-    async def detect_crisis(self, user_message: str) -> Dict[str, Any]:
+    def __init__(self):
+        self.detect_crisis = FunctionTool(self._detect_crisis)
+
+    async def _detect_crisis(self, user_message: str) -> Dict[str, Any]:
         """
         Detect crisis situations in user messages.
         Returns crisis response if detected, otherwise empty.
