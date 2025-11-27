@@ -41,7 +41,7 @@ class PHQ9AssessmentTool:
                     "completed": False
                 }
             else:
-                total_score = score  # In real implementation, you'd accumulate
+                total_score = score
                 category = self.classify_score(total_score)
                 return {
                     "score": score,
