@@ -122,3 +122,22 @@ RESOURCE GUIDELINES:
 triage_runner = InMemoryRunner(agent=triage_agent)
 assessment_runner = InMemoryRunner(agent=assessment_agent)
 resource_runner = InMemoryRunner(agent=resource_agent)
+
+# --- FastAPI App ---
+app = FastAPI(
+    title="Depre Buddy Sequential Triage Agent", version="2.0",
+    description="A sequential triage agent for mental health assessment and resource provision"
+    )
+
+# --- Pydantic Models ---
+class ChatRequest(BaseModel):
+    session_id: str
+    user_message: str
+
+class SessionResponse(BaseModel):
+    session_id: str
+    message: str
+    current_agent: str
+    phq9_score: Optional[int] = None
+    assessment_category: Optional[str] = None
+    crisis_detected: Optional[bool] = None
