@@ -11,16 +11,16 @@ from google.adk.runners import InMemoryRunner
 from google.adk.tools import google_search
 from google.genai import types
 
+# Local tool imports
+from tools.crisis_detection import CrisisDetectionTool
+from tools.phq9_assessment import PHQ9AssessmentTool
+
 # Config imports
 from config import Settings
 
 
 # --- Project Setup ---
 settings = Settings()
-
-API_KEY = settings.GOOGLE_API_KEY
-MODEL_NAME = settings.MODEL_NAME
-SECRET_KEY = settings.SECRET_KEY
 
 # --- ADK Retry Configuration ---
 retry_config = types.HttpRetryOptions(
@@ -66,3 +66,29 @@ PHQ-9 ASSESSMENT:
 Always prioritize user safety and provide a supportive, understanding environment.""",
     tools=[crisis_tool.detect_crisis, phq9_tool.administer_question],
 )
+
+# Assessment Agent - Handles PHQ-9 assessment and scoring
+assessment_agent = Agent(
+    name="assessment_agent",
+    model=Gemini(
+        model=settings.MODEL_NAME,
+        retry_options=retry_config
+    ),
+    description="Clinical assessment agent that administers PHQ-9 and provides scoring",
+    instruction="""You are a clinical mental health assessment specialist. 
+
+YOUR RESPONSIBILITIES:
+1. Administer the PHQ-9 depression assessment professionally
+2. Guide users through all 8 questions with empathy and clarity
+3. Use the administer_question tool to process responses and track progress
+4. Calculate scores and provide appropriate clinical context
+5. Emphasize that this is a screening tool, not a diagnosis
+
+ASSESSMENT PROCESS:
+- Ask one question at a time using the administer_question tool
+- Help users understand the scoring scale (0-3)
+- Be supportive and understanding throughout the process
+- When complete, provide the score and appropriate next steps""",
+    tools=[phq9_tool.administer_question, crisis_tool.detect_crisis],
+)
+
