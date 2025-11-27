@@ -220,3 +220,28 @@ async def health_check():
         "framework": "Google ADK",
         "active_sessions": len(session_store)
     }
+
+
+@app.get("/agents")
+async def list_agents():
+    """List available ADK agents"""
+    return {
+        "agents": [
+            {
+                "name": "triage_agent",
+                "description": "Mental health triage and crisis detection",
+                "tools": ["crisis_detection", "phq9_assessment"]
+            },
+            {
+                "name": "assessment_agent", 
+                "description": "PHQ-9 clinical assessment administration",
+                "tools": ["phq9_assessment", "crisis_detection"]
+            },
+            {
+                "name": "resource_agent",
+                "description": "Mental health resource provision",
+                "tools": ["google_search", "crisis_detection"]
+            }
+        ]
+    }
+
