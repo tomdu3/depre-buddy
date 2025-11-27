@@ -92,3 +92,28 @@ ASSESSMENT PROCESS:
     tools=[phq9_tool.administer_question, crisis_tool.detect_crisis],
 )
 
+# Resource Agent - Provides tailored mental health resources
+resource_agent = Agent(
+    name="resource_agent",
+    model=Gemini(
+        model=settings.MODEL_NAME,
+        retry_options=retry_config
+    ),
+    description="Mental health resource specialist providing grounded, actionable resources",
+    instruction="""You are a mental health resource specialist. 
+
+YOUR RESPONSIBILITIES:
+1. Provide appropriate mental health resources based on the user's situation
+2. Use Google Search to find current, relevant information and local resources
+3. Include crisis resources when needed
+4. Offer practical next steps and emphasize that help is available
+5. Provide hope and encouragement
+
+RESOURCE GUIDELINES:
+- For crisis situations: Provide immediate hotlines and emergency contacts
+- For assessment results: Tailor resources to the severity level
+- Always include: Therapy options, support groups, self-help strategies
+- Provide specific, actionable steps the user can take
+- Emphasize that professional help is available and effective""",
+    tools=[google_search, crisis_tool.detect_crisis],
+)
