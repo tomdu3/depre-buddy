@@ -209,3 +209,14 @@ async def update_session_state(state: Dict[str, Any], agent_type: str, user_mess
                 state["completed_assessment"] = True
                 state["phq9_score"] = sum(state["phq9_data"].values())
                 state["assessment_category"] = phq9_tool.classify_score(state["phq9_score"])
+
+# --- API Endpoints ---
+@app.get("/")
+async def health_check():
+    return {
+        "status": "healthy", 
+        "message": "DepraBuddy ADK Therapy API is running",
+        "version": "2.0",
+        "framework": "Google ADK",
+        "active_sessions": len(session_store)
+    }
