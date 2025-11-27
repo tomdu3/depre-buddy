@@ -141,3 +141,71 @@ class SessionResponse(BaseModel):
     phq9_score: Optional[int] = None
     assessment_category: Optional[str] = None
     crisis_detected: Optional[bool] = None
+
+# --- Session Management ---
+def get_initial_session_state() -> Dict[str, Any]:
+    """Create initial session state following ADK patterns"""
+    return {
+        "current_agent": "triage_agent",
+        "history": [],
+        "phq9_data": {},
+        "phq9_score": 0,
+        "phq9_current_question": 1,
+        "assessment_category": None,
+        "crisis_detected": False,
+        "completed_assessment": False,
+        "created_at": str(uuid.uuid4())
+    }
+
+def route_to_agent(state: Dict[str, Any], user_message: str) -> str:
+    """ADK-style agent routing logic"""
+    current_agent = state["current_agent"]
+    
+    # Crisis always goes to resource agent for emergency help
+    if state.get("crisis_detected"):
+        return "resource_agent"
+    
+    # Agent progression logic
+    if current_agent == "triage_agent":
+        # After triage, move to assessment if no crisis
+        if not state.get("crisis_detected"):
+            return "assessment_agent"
+    
+    elif current_agent == "assessment_agent":
+        # After assessment completion, move to resources
+        if state.get("completed_assessment"):
+            return "resource_agent"
+    
+    # Default: stay with current agent
+    return current_agent
+
+async def update_session_state(state: Dict[str, Any], agent_type: str, user_message: str, response: Any):
+    """Update session state based on agent interactions and tool usage"""
+    
+    # Update history
+    state["history"].append({"role": "user", "text": user_message})
+    state["history"].append({"role": "agent", "text": str(response)})
+    
+    # State updates based on agent type
+    if agent_type == "triage_agent":
+        # Check for crisis in user message
+        crisis_check = await crisis_tool.detect_crisis(user_message)
+        if crisis_check.get("crisis_detected"):
+            state["crisis_detected"] = True
+    
+    elif agent_type == "assessment_agent":
+        # Process PHQ-9 responses
+        if user_message.strip().isdigit() and 0 <= int(user_message) <= 3:
+            current_q = state["phq9_current_question"]
+            score = int(user_message)
+            state["phq9_data"][current_q] = score
+            
+            # Move to next question or complete assessment
+            next_q = current_q + 1
+            if next_q <= 8:
+                state["phq9_current_question"] = next_q
+            else:
+                # Assessment complete
+                state["completed_assessment"] = True
+                state["phq9_score"] = sum(state["phq9_data"].values())
+                state["assessment_category"] = phq9_tool.classify_score(state["phq9_score"])
