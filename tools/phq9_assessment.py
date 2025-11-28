@@ -28,47 +28,18 @@ class PHQ9AssessmentTool:
     def __init__(self):
         self.administer_question = FunctionTool(self._administer_question)
     
-    async def _administer_question(self, question_number: int, user_response: str) -> Dict[str, Any]:
+    async def _administer_question(self, question_number: int) -> Dict[str, Any]:
         """
-        Process PHQ-9 question responses and return next steps.
+        Returns the question text for the given question number.
         """
-        score = self._extract_score(user_response)
-        if score is not None:
-            next_question = question_number + 1
-            if next_question in self.PHQ9_QUESTIONS:
-                return {
-                    "score": score,
-                    "next_question": next_question,
-                    "question_text": self.PHQ9_QUESTIONS[next_question],
-                    "completed": False
-                }
-            else:
-                total_score = score
-                category = self.classify_score(total_score)
-                return {
-                    "score": score,
-                    "total_score": total_score,
-                    "category": category,
-                    "completed": True
-                }
+        if question_number in self.PHQ9_QUESTIONS:
+            return {
+                "question_text": self.PHQ9_QUESTIONS[question_number],
+            }
         else:
             return {
-                "error": "Please respond with: 0 (Not at all), 1 (Several days), 2 (More than half the days), or 3 (Nearly every day)",
-                "current_question": question_number,
-                "question_text": self.PHQ9_QUESTIONS[question_number]
+                "error": "Invalid question number.",
             }
-    
-    def _extract_score(self, response: str) -> int:
-        response_lower = response.lower()
-        if '0' in response or 'not at all' in response_lower:
-            return 0
-        elif '1' in response or 'several' in response_lower:
-            return 1
-        elif '2' in response or 'more than half' in response_lower:
-            return 2
-        elif '3' in response or 'nearly every' in response_lower:
-            return 3
-        return None
     
     def classify_score(self, score: int) -> str:
         if score >= 20:
