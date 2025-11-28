@@ -86,13 +86,16 @@ YOUR RESPONSIBILITIES:
 
 ASSESSMENT PROCESS:
 - Ask one question at a time using the administer_question tool
-- Help users understand the scoring scale (0-3)
+- After the user answers, acknowledge their response before moving to the next question.
+- Clearly state the current question number and text.
+- Include the meaning of the scale in each question. For example: "On a scale of 0 to 3, where 0 is 'Not at all', 1 is 'Several days', 2 is 'More than half the days', and 3 is 'Nearly every day', how often have you been bothered by..."
 - Be supportive and understanding throughout the process
 - When complete, provide the score and appropriate next steps
 
 USER GUIDANCE:
 - If the user provides a non-numerical answer, gently guide them to provide a score between 0 and 3. For example, you can say: "I understand you're feeling down. To help me understand better, could you please rate how much you've been bothered by this on a scale of 0 to 3, where 0 is 'Not at all' and 3 is 'Nearly every day'?"
-- If the user's answer is vague, ask for clarification. For example, if they say "a little," you can ask: "On a scale of 0 to 3, what number would you say 'a little' corresponds to?"
+- If the user's answer is vague or you are uncertain about the score, ask for confirmation. For example, if they say "sometimes," you could ask: "It sounds like you're saying you've been bothered by this on 'several days', which would be a 1 on our scale. Does that sound right?"
+- If the user's answer is a phrase like "Almost every day", rephrase it as a question to confirm. For example: "So for question 2, you're saying you've been bothered by [question text] 'Nearly every day'. Is that correct?"
 - Continue the assessment until all 8 questions have been answered with a valid numerical score.
 """,
     tools=[phq9_tool.administer_question, crisis_tool.detect_crisis],
@@ -201,14 +204,26 @@ async def update_session_state(state: Dict[str, Any], agent_type: str, user_mess
     
     elif agent_type == "assessment_agent":
         # Process PHQ-9 responses
-        if user_message.strip().isdigit() and 0 <= int(user_message) <= 3:
+        def _extract_score(response: str) -> int:
+            response_lower = response.lower()
+            if any(s in response_lower for s in ['0', 'not at all', 'none']):
+                return 0
+            elif any(s in response_lower for s in ['1', 'several days', 'some', 'a little']):
+                return 1
+            elif any(s in response_lower for s in ['2', 'more than half', 'many', 'a lot']):
+                return 2
+            elif any(s in response_lower for s in ['3', 'nearly every day', 'almost every day', 'every day', 'all the time']):
+                return 3
+            return None
+
+        score = _extract_score(user_message)
+        if score is not None:
             current_q = state["phq9_current_question"]
-            score = int(user_message)
             state["phq9_data"][current_q] = score
             
             # Move to next question or complete assessment
             next_q = current_q + 1
-            if next_q <= 8:
+            if next_q <= 9:
                 state["phq9_current_question"] = next_q
             else:
                 # Assessment complete
@@ -300,6 +315,22 @@ async def list_sessions() -> Dict[str, Any]:
     }
 
 
+def extract_user_message(response: Any) -> str:
+    """Extracts the user-facing message from the raw ADK response."""
+    if not response:
+        return "I'm sorry, but I don't have a response for you."
+
+    # The response is a list of Event objects. We want the last one.
+    last_event = response[-1]
+
+    # The last event's content is a Content object. We want its parts.
+    parts = last_event.content.parts
+
+    # The last part of the content is a Part object. We want its text.
+    last_part = parts[-1]
+
+    return last_part.text
+
 @app.post("/chat", response_model=SessionResponse)
 async def chat_endpoint(request: ChatRequest) -> SessionResponse:
     """
@@ -325,10 +356,8 @@ async def chat_endpoint(request: ChatRequest) -> SessionResponse:
             response = await triage_runner.run_debug(user_message)
             
         elif target_agent == "assessment_agent":
-            # Add PHQ-9 context for the assessment agent
-            current_q = state["phq9_current_question"]
-            contextual_message = f"PHQ-9 Question {current_q}: {user_message}"
-            response = await assessment_runner.run_debug(contextual_message)
+            # Pass only the user's raw message to the assessment agent
+            response = await assessment_runner.run_debug(user_message)
             
         elif target_agent == "resource_agent":
             # Add assessment context for personalized resources
@@ -344,9 +373,11 @@ async def chat_endpoint(request: ChatRequest) -> SessionResponse:
         # Update session state based on the interaction
         await update_session_state(state, target_agent, user_message, response)
         
+        user_facing_message = extract_user_message(response)
+
         return SessionResponse(
             session_id=session_id,
-            message=str(response),
+            message=user_facing_message,
             current_agent=target_agent,
             phq9_score=state.get("phq9_score"),
             assessment_category=state.get("assessment_category"),
@@ -354,12 +385,7 @@ async def chat_endpoint(request: ChatRequest) -> SessionResponse:
         )
         
     except Exception as e:
-        error_msg = f"Agent processing error: {str(e)}"
-        print(f"[ADK Error] {error_msg}")
-        return SessionResponse(
-            session_id=session_id,
-            message="I apologize, but I'm having trouble processing your request. Please try again.",
-            current_agent=state["current_agent"],
-            crisis_detected=state.get("crisis_detected", False)
-        )
+        import traceback
+        traceback.print_exc()
+        raise e
 
