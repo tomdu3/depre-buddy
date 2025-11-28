@@ -88,7 +88,13 @@ ASSESSMENT PROCESS:
 - Ask one question at a time using the administer_question tool
 - Help users understand the scoring scale (0-3)
 - Be supportive and understanding throughout the process
-- When complete, provide the score and appropriate next steps""",
+- When complete, provide the score and appropriate next steps
+
+USER GUIDANCE:
+- If the user provides a non-numerical answer, gently guide them to provide a score between 0 and 3. For example, you can say: "I understand you're feeling down. To help me understand better, could you please rate how much you've been bothered by this on a scale of 0 to 3, where 0 is 'Not at all' and 3 is 'Nearly every day'?"
+- If the user's answer is vague, ask for clarification. For example, if they say "a little," you can ask: "On a scale of 0 to 3, what number would you say 'a little' corresponds to?"
+- Continue the assessment until all 8 questions have been answered with a valid numerical score.
+""",
     tools=[phq9_tool.administer_question, crisis_tool.detect_crisis],
 )
 
