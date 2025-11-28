@@ -17,5 +17,3 @@ class Settings(BaseSettings):
         env_file = ".env"  # Optional: specify env file if used
 
 settings = Settings()
-
-print(settings.MODEL_NAME)

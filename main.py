@@ -245,3 +245,115 @@ async def list_agents():
         ]
     }
 
+@app.post("/session/new")
+async def create_new_session() -> Dict[str, Any]:
+    """Create a new ADK therapy session"""
+    session_id = str(uuid.uuid4())
+    session_store[session_id] = get_initial_session_state()
+    
+    return {
+        "session_id": session_id,
+        "message": "New ADK therapy session created",
+        "initial_agent": "triage_agent",
+        "status": "active"
+    }
+
+@app.get("/session/{session_id}")
+async def get_session_status(session_id: str) -> Dict[str, Any]:
+    """Get the current status of a therapy session"""
+    if session_id not in session_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    state = session_store[session_id]
+    return {
+        "session_id": session_id,
+        "current_agent": state["current_agent"],
+        "phq9_score": state.get("phq9_score"),
+        "phq9_current_question": state.get("phq9_current_question"),
+        "assessment_category": state.get("assessment_category"),
+        "crisis_detected": state.get("crisis_detected", False),
+        "completed_assessment": state.get("completed_assessment", False),
+        "history_length": len(state["history"])
+    }
+
+@app.delete("/session/{session_id}")
+async def delete_session(session_id: str) -> Dict[str, str]:
+    """Delete a therapy session"""
+    if session_id in session_store:
+        del session_store[session_id]
+        return {"message": f"Session {session_id} deleted"}
+    else:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+@app.get("/sessions")
+async def list_sessions() -> Dict[str, Any]:
+    """List all active sessions (for debugging)"""
+    return {
+        "active_sessions": len(session_store),
+        "sessions": list(session_store.keys())
+    }
+
+
+@app.post("/chat", response_model=SessionResponse)
+async def chat_endpoint(request: ChatRequest) -> SessionResponse:
+    """
+    Main chat endpoint using ADK agent patterns
+    """
+    session_id = request.session_id
+    user_message = request.user_message
+
+    # Get or create session
+    if session_id not in session_store:
+        session_store[session_id] = get_initial_session_state()
+        print(f"[ADK] New session created: {session_id}")
+    
+    state = session_store[session_id]
+    
+    try:
+        # Determine which agent should handle this message
+        target_agent = route_to_agent(state, user_message)
+        state["current_agent"] = target_agent
+        
+        # Route to appropriate ADK agent
+        if target_agent == "triage_agent":
+            response = await triage_runner.run_debug(user_message)
+            
+        elif target_agent == "assessment_agent":
+            # Add PHQ-9 context for the assessment agent
+            current_q = state["phq9_current_question"]
+            contextual_message = f"PHQ-9 Question {current_q}: {user_message}"
+            response = await assessment_runner.run_debug(contextual_message)
+            
+        elif target_agent == "resource_agent":
+            # Add assessment context for personalized resources
+            context_info = ""
+            if state.get("assessment_category"):
+                context_info = f" Assessment Category: {state['assessment_category']}. PHQ-9 Score: {state.get('phq9_score', 'N/A')}."
+            if state.get("crisis_detected"):
+                context_info += " CRISIS SITUATION - Provide emergency resources."
+                
+            contextual_message = f"{user_message}{context_info}"
+            response = await resource_runner.run_debug(contextual_message)
+        
+        # Update session state based on the interaction
+        await update_session_state(state, target_agent, user_message, response)
+        
+        return SessionResponse(
+            session_id=session_id,
+            message=str(response),
+            current_agent=target_agent,
+            phq9_score=state.get("phq9_score"),
+            assessment_category=state.get("assessment_category"),
+            crisis_detected=state.get("crisis_detected", False)
+        )
+        
+    except Exception as e:
+        error_msg = f"Agent processing error: {str(e)}"
+        print(f"[ADK Error] {error_msg}")
+        return SessionResponse(
+            session_id=session_id,
+            message="I apologize, but I'm having trouble processing your request. Please try again.",
+            current_agent=state["current_agent"],
+            crisis_detected=state.get("crisis_detected", False)
+        )
+
