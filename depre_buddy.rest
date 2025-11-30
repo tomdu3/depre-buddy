@@ -1,0 +1,22 @@
+# Depre-Buddy REST API
+
+@BASE_URL = http://localhost:8000    
+## Chat Endpoint
+
+### Request
+POST {{BASE_URL}}/chat
+content-type: application/json
+
+{
+    "session_id": "93cba7e1-2258-452d-acaf-168bbfd9e9ca",
+    "user_message": "can you suggest something I could do, some activity?"
+}
+
+## Create Session
+
+### Request
+POST {{BASE_URL}}/session/new
+content-type: application/json
+
+
+
