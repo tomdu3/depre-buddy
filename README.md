@@ -103,4 +103,12 @@ The response will contain the agent's response.
 You can continue the conversation by sending another POST request to the same endpoint with the session ID and a new user message. The ai agent will respond based on the current state of the session, and the phq9 score questionnaire will be initiated, if the user would express feelings of depression. If the user would express feelings of crisis (expressions like `I want to kill myself`, or `I want to die`), the ai agent will immediately provide emergency contact information and support hotlines.
 
 
-For more information on the API, see the [API Documentation](http://127.0.0.1:8000/docs). 
+For more information on the API, see the [API Documentation](http://127.0.0.1:8000/docs).
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+&copy; [Tomislav Dukez](https://github.com/tomdu3), 2025. 
