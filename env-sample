@@ -1,0 +1,4 @@
+# copy this file to .env and add your google api key and secret key
+GOOGLE_GENAI_USE_VERTEXAI=0
+GOOGLE_API_KEY=<here-add-your-google-api-key>
+SECRET_KEY=<here-add-your-secret-key>
