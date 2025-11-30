@@ -51,6 +51,12 @@ To run Depre-Buddy on your local machine, follow these steps:
     GOOGLE_API_KEY="your_google_api_key_here"
     ```
     You can also set an optional `SECRET_KEY` for the application.
+    
+    You can find an example of the `.env` file in the `env-sample` file. Copy it to `.env` and fill in your Google API key and secret key.
+
+    ```bash
+    cp env-sample .env
+    ```
 
 5.  **Run the Application:**
     ```bash
@@ -60,3 +66,41 @@ To run Depre-Buddy on your local machine, follow these steps:
 
 6.  **API Documentation:**
     Once the server is running, you can access the interactive API documentation (provided by Swagger UI) at `http://127.0.0.1:8000/docs`.
+
+## Trying it out
+
+You can try it out by sending a POST request to `http://127.0.0.1:8000/new`. The response will contain a session ID.
+
+{
+  "session_id": "session_id_string",
+  "message": "New ADK therapy session created",
+  "initial_agent": "triage_agent",
+  "status": "active"
+}
+
+Then you can send a POST request to `http://127.0.0.1:8000/chat` with the following body:
+
+```json
+{
+  "session_id": "session_id_string",
+  "user_message": "Message from the user.."
+}
+```
+
+The response will contain the agent's response.
+
+```json
+{
+  "session_id": "session_id_string",
+  "message": "It's good that you're looking for things you can do....",
+  "current_agent": "assessment_agent",
+  "phq9_score": 0,
+  "assessment_category": null,
+  "crisis_detected": false
+}
+```
+
+You can continue the conversation by sending another POST request to the same endpoint with the session ID and a new user message. The ai agent will respond based on the current state of the session, and the phq9 score questionnaire will be initiated, if the user would express feelings of depression. If the user would express feelings of crisis (expressions like `I want to kill myself`, or `I want to die`), the ai agent will immediately provide emergency contact information and support hotlines.
+
+
+For more information on the API, see the [API Documentation](http://127.0.0.1:8000/docs). 
