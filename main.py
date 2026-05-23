@@ -1,6 +1,8 @@
 import os
 import uuid
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 
@@ -138,6 +140,8 @@ app = FastAPI(
     description="A sequential triage agent for mental health assessment and resource provision"
     )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
     session_id: str
@@ -232,7 +236,13 @@ async def update_session_state(state: Dict[str, Any], agent_type: str, user_mess
                 state["assessment_category"] = phq9_tool.classify_score(state["phq9_score"])
 
 # --- API Endpoints ---
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+async def serve_home():
+    """Serve the frontend chat client"""
+    return FileResponse("static/index.html")
+
+
+@app.get("/api/health")
 async def health_check():
     return {
         "status": "healthy", 
